@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Lab: Determining g with a Spring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        canvas { touch-action: none; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .stopwatch-glow {
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #4f46e5;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans text-slate-900">
+
+    <nav class="bg-indigo-800 text-white p-4 shadow-md">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center gap-2">
+            <div>
+                <h1 class="text-xl font-bold tracking-tight">PhysicsLab: Acceleration of Free Fall</h1>
+                <p class="text-xs text-indigo-200">Interactive SHM Exploration for Secondary Physics (g = 9.81 m/s²)</p>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+                <div class="flex items-center gap-2 bg-indigo-900 px-3 py-1 rounded-full border border-indigo-700">
+                    <span class="text-[10px] font-bold uppercase opacity-70">Sim Speed:</span>
+                    <select id="speedSelect" class="bg-transparent text-white text-xs font-bold outline-none cursor-pointer">
+                        <option value="1" class="text-slate-900">Normal (1.0x)</option>
+                        <option value="0.5" class="text-slate-900">Slow (0.5x)</option>
+                        <option value="0.25" class="text-slate-900">Very Slow (0.25x)</option>
+                    </select>
+                </div>
+                <button onclick="window.location.reload()" class="bg-indigo-700 hover:bg-indigo-600 px-3 py-1 rounded transition text-xs">Reset Lab</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Column 1: Simulation -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+            <div class="glass-panel p-4 rounded-2xl shadow-xl relative overflow-hidden h-[550px] flex flex-col border-b-4 border-indigo-500">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="font-bold text-slate-700 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                        Apparatus
+                    </h2>
+                    <span id="speedIndicator" class="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded font-bold">1.0x SPEED</span>
+                </div>
+                
+                <canvas id="labCanvas" class="w-full flex-grow bg-slate-50 border border-slate-200 rounded-xl shadow-inner"></canvas>
+                
+                <!-- Stopwatch Overlay: Repositioned to Bottom -->
+                <div class="absolute bottom-12 right-8 flex flex-col gap-2 scale-90 md:scale-100 origin-bottom-right">
+                    <div id="stopwatchDisplay" class="bg-slate-900 text-green-400 font-mono text-3xl p-3 rounded-lg border-2 border-slate-700 shadow-2xl tabular-nums stopwatch-glow">
+                        00:00.00
+                    </div>
+                    <div class="flex gap-1">
+                        <button id="timerToggle" class="flex-grow py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-bold text-sm transition active:scale-95 shadow-lg">START / STOP</button>
+                        <button id="timerReset" class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-md font-bold text-sm transition active:scale-95 text-xs shadow-lg">CLR</button>
+                    </div>
+                    <p class="text-[10px] text-center text-slate-400 font-bold uppercase mt-1">Simulated Time (s)</p>
+                </div>
+
+                <!-- Helper Label -->
+                <div class="absolute bottom-6 left-6 pointer-events-none opacity-40">
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Retort Stand & Ruler (mm)</p>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="glass-panel p-6 rounded-2xl shadow-lg space-y-5 border-t-4 border-emerald-500">
+                <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                    Adjust Parameters
+                </h3>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-[11px] font-bold text-slate-500">
+                            <label>MASS (m / kg)</label>
+                            <span id="massVal" class="text-indigo-600 font-mono">0.100 kg</span>
+                        </div>
+                        <input type="range" id="massSlider" min="50" max="500" step="50" value="100" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-[11px] font-bold text-slate-500">
+                            <label>SPRING (k / N/m)</label>
+                            <span id="kVal" class="text-indigo-600 font-mono">25 N/m</span>
+                        </div>
+                        <input type="range" id="kSlider" min="10" max="50" step="5" value="25" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button id="displaceBtn" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition transform active:scale-95">Displace 50mm & Release</button>
+                    <button id="addPointBtn" class="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold shadow-lg transition transform active:scale-95">Log to Table</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Column 2: Data & Theory -->
+        <div class="lg:col-span-7 flex flex-col gap-6">
+            <!-- Theory Section -->
+            <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
+                <h3 class="font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" /></svg>
+                    Lab Objectives
+                </h3>
+                <div class="text-sm text-slate-600 space-y-2">
+                    <p>1. Time 20 oscillations for various masses to find period T (s). Use <b>Slow Motion</b> for better accuracy.</p>
+                    <p>2. Relation: T = 2π√(m/k) ⟹ T² = (4π²/k) m.</p>
+                    <p>3. The gradient of T² against m is 4π²/k.</p>
+                </div>
+            </div>
+
+            <!-- Graph Panel -->
+            <div class="glass-panel p-5 rounded-2xl shadow-lg h-[350px] border-t-4 border-indigo-400">
+                <canvas id="analysisChart"></canvas>
+            </div>
+
+            <!-- New: Calculation Panel -->
+            <div id="calcPanel" class="bg-indigo-900 text-white p-6 rounded-2xl shadow-lg hidden">
+                <h3 class="font-bold uppercase text-xs tracking-widest text-indigo-300 mb-4">Gradient Analysis & Calculation of g</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center border-b border-indigo-800 pb-2">
+                            <span class="text-sm opacity-80 font-medium">Gradient (s²/kg):</span>
+                            <span id="calcGradient" class="text-xl font-mono font-bold text-emerald-400">---</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-indigo-800 pb-2">
+                            <span class="text-sm opacity-80 font-medium">Calculated k (N/m):</span>
+                            <span id="calcK" class="text-xl font-mono font-bold text-amber-400">---</span>
+                        </div>
+                    </div>
+                    <div class="bg-indigo-950/50 p-4 rounded-xl border border-indigo-700/50 text-xs space-y-3">
+                        <p class="font-bold text-indigo-300 uppercase tracking-tighter">Physics Verification</p>
+                        <p>Based on $T^2 = (\frac{4\pi^2}{k})m$, we determine:</p>
+                        <div class="font-mono bg-indigo-900/40 p-2 rounded text-indigo-200">
+                            k = 4π² / Gradient
+                        </div>
+                        <p>With static extension $e$, $g$ is verified via $mg = ke \implies g = ke/m$.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Panel -->
+            <div class="glass-panel p-5 rounded-2xl shadow-lg overflow-hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-slate-800 uppercase text-xs tracking-widest text-slate-600">Results Table (SI Units)</h3>
+                    <button id="clearData" class="text-xs text-red-500 hover:underline">Clear All</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm border-collapse" id="dataTable">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="py-3 px-2 border-b font-semibold text-slate-600">Mass m (kg)</th>
+                                <th class="py-3 px-2 border-b font-semibold text-slate-600">Time for 20 osc. (s)</th>
+                                <th class="py-3 px-2 border-b font-semibold text-slate-600">Period T (s)</th>
+                                <th class="py-3 px-2 border-b font-semibold text-slate-600">Period T² (s²)</th>
+                                <th class="py-3 px-2 border-b font-semibold text-slate-600 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="dataRows">
+                            <!-- Rows -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="emptyMsg" class="text-center py-10 text-slate-400 italic text-sm">No data points logged. Start your measurement!</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        /**
+         * PHYSICS SIMULATION CORE
+         */
+        const g = 9.81; 
+        let massKg = 0.1; 
+        let k_const = 25; 
+        let yPos = 0; 
+        let yVel = 0;
+        let isOscillating = false;
+        
+        // Configuration for the updated apparatus
+        const APPARATUS_START_Y = 120; // Shorter stand (arm starts lower)
+        const NATURAL_LENGTH = 80;    // Spring twice its original length (was 40)
+        
+        let simTimeSeconds = 0;
+        let timeScale = 1.0;
+        let timerRunning = false;
+        let dataPoints = [];
+
+        const canvas = document.getElementById('labCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            width = rect.width;
+            height = rect.height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // UI Selectors
+        const massSlider = document.getElementById('massSlider');
+        const kSlider = document.getElementById('kSlider');
+        const massValDisplay = document.getElementById('massVal');
+        const kValDisplay = document.getElementById('kVal');
+        const stopwatchDisplay = document.getElementById('stopwatchDisplay');
+        const timerToggle = document.getElementById('timerToggle');
+        const timerReset = document.getElementById('timerReset');
+        const speedSelect = document.getElementById('speedSelect');
+        const speedIndicator = document.getElementById('speedIndicator');
+        const addPointBtn = document.getElementById('addPointBtn');
+        const dataRows = document.getElementById('dataRows');
+        const emptyMsg = document.getElementById('emptyMsg');
+        const calcPanel = document.getElementById('calcPanel');
+
+        // Chart Setup
+        const chartCtx = document.getElementById('analysisChart').getContext('2d');
+        const analysisChart = new Chart(chartCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Measured Data',
+                        data: [],
+                        backgroundColor: '#6366f1',
+                        borderColor: '#4f46e5',
+                        pointRadius: 6,
+                        showLine: false
+                    },
+                    {
+                        label: 'Line of Best Fit',
+                        data: [],
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        showLine: true,
+                        fill: false,
+                        borderDash: [5, 5]
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Mass (kg)', font: { weight: 'bold' } }, min: 0 },
+                    y: { title: { display: true, text: 'T² (s²)', font: { weight: 'bold' } }, min: 0 }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        function updateSimulation(dt) {
+            const scaledDt = dt * timeScale;
+            
+            if (timerRunning) {
+                simTimeSeconds += scaledDt;
+            }
+
+            // SHM Physics
+            const forceGravity = massKg * g;
+            const forceSpring = -k_const * (yPos / 100); 
+            const netForce = forceGravity + forceSpring;
+            const acceleration = netForce / massKg;
+
+            yVel += acceleration * scaledDt * 60; 
+            yPos += yVel * scaledDt * 60;
+
+            yVel *= 0.998; 
+
+            if (!isOscillating) {
+                const equilibrium = (massKg * g / k_const) * 100;
+                yPos += (equilibrium - yPos) * 0.1;
+                yVel *= 0.5;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+            
+            const centerX = width / 2;
+            const startY = APPARATUS_START_Y;
+
+            // 1. Draw Retort Stand
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(centerX - 100, height - 20); ctx.lineTo(centerX + 100, height - 20); 
+            ctx.moveTo(centerX - 80, height - 20); ctx.lineTo(centerX - 80, startY); 
+            ctx.lineTo(centerX, startY); 
+            ctx.stroke();
+
+            // 2. Draw Ruler
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '8px monospace';
+            for (let i = 0; i < height - startY - 20; i += 5) {
+                const y = startY + i;
+                ctx.beginPath();
+                ctx.moveTo(centerX - 70, y);
+                ctx.lineTo(centerX - (i % 50 === 0 ? 50 : (i % 10 === 0 ? 60 : 65)), y);
+                ctx.stroke();
+                if (i % 50 === 0) ctx.fillText(i + 'mm', centerX - 45, y + 3);
+            }
+
+            // 3. Draw Spring
+            const endY = startY + NATURAL_LENGTH + yPos;
+            const coils = 24; 
+            const springWidth = 12;
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, startY);
+            for (let i = 0; i <= coils; i++) {
+                const py = startY + (i / coils) * (endY - startY);
+                const px = centerX + (i % 2 === 0 ? springWidth : -springWidth);
+                ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            // 4. Draw Mass
+            const massSize = 24 + (massKg * 40);
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(centerX - massSize/2, endY, massSize, massSize * 0.8);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText((massKg*1000).toFixed(0) + 'g', centerX, endY + (massSize * 0.5));
+
+            // Hook
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(centerX, endY - 2, 4, 0, Math.PI);
+            ctx.stroke();
+            
+            updateDisplayTime();
+            updateSimulation(1/60);
+            requestAnimationFrame(draw);
+        }
+
+        function updateDisplayTime() {
+            const totalMs = Math.floor(simTimeSeconds * 100);
+            const ms = totalMs % 100;
+            const s = Math.floor(simTimeSeconds) % 60;
+            const m = Math.floor(simTimeSeconds / 60);
+            stopwatchDisplay.innerText = 
+                `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}.${ms.toString().padStart(2,'0')}`;
+        }
+
+        // Linear Regression
+        function calculateTrendline(points) {
+            if (points.length < 2) return null;
+            let n = points.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            points.forEach(p => {
+                sumX += p.m;
+                sumY += p.T2;
+                sumXY += p.m * p.T2;
+                sumX2 += p.m * p.m;
+            });
+            const gradient = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - gradient * sumX) / n;
+            return { gradient, intercept };
+        }
+
+        // --- Controller Logic ---
+
+        speedSelect.onchange = () => {
+            timeScale = parseFloat(speedSelect.value);
+            speedIndicator.innerText = speedSelect.value + 'x SPEED';
+        };
+
+        massSlider.oninput = () => {
+            massKg = massSlider.value / 1000;
+            massValDisplay.innerText = massKg.toFixed(3) + ' kg';
+            isOscillating = false;
+        };
+
+        kSlider.oninput = () => {
+            k_const = parseInt(kSlider.value);
+            kValDisplay.innerText = kSlider.value + ' N/m';
+            isOscillating = false;
+        };
+
+        document.getElementById('displaceBtn').onclick = () => {
+            const equilibrium = (massKg * g / k_const) * 100;
+            yPos = equilibrium + 50; 
+            yVel = 0;               
+            isOscillating = true;
+        };
+
+        timerToggle.onclick = () => {
+            timerRunning = !timerRunning;
+            if (timerRunning) {
+                timerToggle.innerText = "STOP";
+                timerToggle.classList.replace('bg-green-600', 'bg-red-600');
+            } else {
+                timerToggle.innerText = "START";
+                timerToggle.classList.replace('bg-red-600', 'bg-green-600');
+            }
+        };
+
+        timerReset.onclick = () => {
+            timerRunning = false;
+            simTimeSeconds = 0;
+            timerToggle.innerText = "START";
+            timerToggle.classList.replace('bg-red-600', 'bg-green-600');
+        };
+
+        addPointBtn.onclick = () => {
+            if (simTimeSeconds <= 0) return;
+            const t20 = simTimeSeconds;
+            const T = t20 / 20;
+            const T2 = T * T;
+            dataPoints.push({ m: massKg, t20: t20, T: T, T2: T2 });
+            updateUI();
+        };
+
+        document.getElementById('clearData').onclick = () => {
+            dataPoints = [];
+            updateUI();
+        };
+
+        function updateUI() {
+            dataRows.innerHTML = '';
+            emptyMsg.style.display = dataPoints.length ? 'none' : 'block';
+            calcPanel.classList.toggle('hidden', dataPoints.length < 2);
+            
+            dataPoints.sort((a,b) => a.m - b.m);
+
+            dataPoints.forEach((p, idx) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50 transition';
+                row.innerHTML = `
+                    <td class="py-2 px-2 text-slate-700 font-mono">${p.m.toFixed(3)} kg</td>
+                    <td class="py-2 px-2 text-slate-700 font-mono">${p.t20.toFixed(2)} s</td>
+                    <td class="py-2 px-2 text-slate-700 font-mono">${p.T.toFixed(3)} s</td>
+                    <td class="py-2 px-2 text-indigo-600 font-bold font-mono">${p.T2.toFixed(4)} s²</td>
+                    <td class="py-2 px-2 text-center">
+                        <button onclick="removePoint(${idx})" class="text-red-400 hover:text-red-600 text-xs font-bold">REMOVE</button>
+                    </td>
+                `;
+                dataRows.appendChild(row);
+            });
+
+            // Update Chart Data
+            analysisChart.data.datasets[0].data = dataPoints.map(p => ({ x: p.m, y: p.T2 }));
+            
+            const trend = calculateTrendline(dataPoints);
+            if (trend) {
+                const maxX = Math.max(...dataPoints.map(p => p.m)) * 1.2;
+                analysisChart.data.datasets[1].data = [
+                    { x: 0, y: trend.intercept },
+                    { x: maxX, y: trend.gradient * maxX + trend.intercept }
+                ];
+                
+                // Update Calculation Results
+                const calcK = (4 * Math.PI * Math.PI) / trend.gradient;
+                document.getElementById('calcGradient').innerText = trend.gradient.toFixed(4);
+                document.getElementById('calcK').innerText = calcK.toFixed(2);
+            } else {
+                analysisChart.data.datasets[1].data = [];
+            }
+            
+            analysisChart.update();
+        }
+
+        window.removePoint = (idx) => {
+            dataPoints.splice(idx, 1);
+            updateUI();
+        };
+
+        requestAnimationFrame(draw);
+
+    </script>
+</body>
+</html>
